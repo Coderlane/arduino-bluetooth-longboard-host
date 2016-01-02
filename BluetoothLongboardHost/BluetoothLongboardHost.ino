@@ -16,76 +16,73 @@ void connection_down();
 
 void setup()
 {
-        delay(1000);
-	analogReference(DEFAULT);
-	bluetooth.setup();
-        bluetooth.setTimeout(10);
-	pinMode(status_led_pin, OUTPUT);
+  delay(1000);
+  analogReference(DEFAULT);
+  bluetooth.setup();
+  bluetooth.setTimeout(10);
+  pinMode(status_led_pin, OUTPUT);
 }
 
 void loop ()
 {
-	long cur_millis = millis();
-	if (cur_millis - prev_millis > interval_millis) {
-		prev_millis = cur_millis;
+  long cur_millis = millis();
+  if (cur_millis - prev_millis > interval_millis) {
+    prev_millis = cur_millis;
 
-		if (bluetooth.isConnected()) {
-			connection_up();
-		} else {
-			if (recent_disconnect < 50) {
-				connection_lost();
-			} else {
-				connection_down();
-			}
-		}
-	}
+    if (bluetooth.isConnected()) {
+      connection_up();
+    } else if (recent_disconnect < 50) {
+      connection_lost();
+    }  else {
+      connection_down();
+    }
+  }
 }
 
 inline void connection_up()
 {
-        static char buffer[32];
-        int len = 0;
-	// Connection is up.
+  static char buffer[32];
+  int len = 0;
+  // Connection is up.
 
-	recent_disconnect = 0;
-	interval_millis = 1000;
+  recent_disconnect = 0;
+  interval_millis = 1000;
 
-        len = bluetooth.readBytesUntil('\n', buffer, sizeof(buffer));
+  len = bluetooth.readBytesUntil('\n', buffer, sizeof(buffer));
 
-	if (status_led_state != HIGH) {
-		// Turn on LED
-		digitalWrite(status_led_pin, HIGH);
-		status_led_state = HIGH;
-	}
+  if (status_led_state != HIGH) {
+    // Turn on LED
+    digitalWrite(status_led_pin, HIGH);
+    status_led_state = HIGH;
+  }
 }
 
 inline void connection_lost()
 {
-	// Connection recently lost.
-	// Attempt to resend quickly :)
+  // Connection recently lost.
+  // Attempt to resend quickly :)
 
-	interval_millis = 500;
-	recent_disconnect++;
+  interval_millis = 500;
+  recent_disconnect++;
 
-	// Blink LED
-	if (status_led_state == LOW) {
-		digitalWrite(status_led_pin, HIGH);
-		status_led_state = HIGH;
-	}  else {
-		digitalWrite(status_led_pin, LOW);
-		status_led_state = LOW;
-	}
+  // Blink LED
+  if (status_led_state == LOW) {
+    digitalWrite(status_led_pin, HIGH);
+    status_led_state = HIGH;
+  } else {
+    digitalWrite(status_led_pin, LOW);
+    status_led_state = LOW;
+  }
 }
 
 inline void connection_down()
 {
-	// Connection has been lost for a while.
+  // Connection has been lost for a while.
 
-	interval_millis = 2000;
-	if (status_led_state != LOW) {
-		// Turn off LED
-		digitalWrite(status_led_pin, LOW);
-		status_led_state = LOW;
-	}
+  interval_millis = 2000;
+  if (status_led_state != LOW) {
+    // Turn off LED
+    digitalWrite(status_led_pin, LOW);
+    status_led_state = LOW;
+  }
 }
-
