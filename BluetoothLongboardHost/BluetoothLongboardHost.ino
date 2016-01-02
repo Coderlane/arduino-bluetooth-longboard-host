@@ -1,18 +1,38 @@
 #include <HardwareBluetoothRN42.h>
 
+// Must be digital pin
+const int left_pwm_pin = 9;  //TODO: Find Value
+const int right_pwm_pin = 8; //TODO: Find Value
+
 const int status_pin = 2;
 const int status_led_pin = 3;
 
+long cur_millis = 0;
 long prev_millis = 0;
 long interval_millis = 100;
 int status_led_state = LOW;
 int recent_disconnect = 0;
 
-/HardwareBluetoothRN42 bluetooth(Serial1, status_pin, 3, "BlueHost");
+const int max_acceleration = 10;
+const int min_acceleration = 1;
+const int max_power = 100;
+const int min_power = 0;
+int cur_power = 0;
+
+HardwareBluetoothRN42 bluetooth(Serial1, status_pin, 3, "BlueHost");
+
+int read_percent();
+void request_percent(int percent);
 
 void connection_up();
 void connection_lost();
 void connection_down();
+
+// Utility
+int parseInt(const char *str);
+char * strchr(char *str, int c);
+
+int str_to_percent(char *str);
 
 void setup()
 {
@@ -33,22 +53,42 @@ void loop ()
       connection_up();
     } else if (recent_disconnect < 50) {
       connection_lost();
-    }  else {
+    } else {
       connection_down();
     }
   }
 }
 
+inline int read_percent()
+{
+  int len, percent;
+  char buff[16];
+  if (bluetooth.available() < 3)
+    return -1;
+  // If there is an integer to read, read it.
+  len = bluetooth.readBytesUntil('\r', buff, sizeof(buff));
+  if (len < 3)
+    return -1;
+
+  return str_to_percent(&(buff[len - 3]));
+}
+
+inline void request_percent(int percent)
+{
+  //TODO: Implement this
+}
+
 inline void connection_up()
 {
-  static char buffer[32];
-  int len = 0;
+  int percent;
   // Connection is up.
 
   recent_disconnect = 0;
-  interval_millis = 1000;
+  interval_millis = 100;
 
-  len = bluetooth.readBytesUntil('\n', buffer, sizeof(buffer));
+  percent = read_percent();
+  if (percent >= 0)
+    request_percent(percent);
 
   if (status_led_state != HIGH) {
     // Turn on LED
@@ -85,4 +125,22 @@ inline void connection_down()
     digitalWrite(status_led_pin, LOW);
     status_led_state = LOW;
   }
+}
+
+// Change a string to a percent.
+// str must be char[3] or more.
+// The percent should be 0 to 100.
+// If it is not, return -1.
+int str_to_percent(char *str)
+{
+  int percent = 0;
+
+  percent += (str[0] - '0') * 100;
+  percent += (str[1] - '0') * 10;
+  percent += (str[2] - '0');
+
+  if (percent > 100 || percent < 0)
+    return -1;
+
+  return percent;
 }
