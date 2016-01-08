@@ -1,11 +1,12 @@
+#include <Connection.h>
 #include <HardwareBluetoothRN42.h>
 
-// Must be digital pin
-const int left_pwm_pin = 9;  //TODO: Find Value
-const int right_pwm_pin = 8; //TODO: Find Value
+// Must be a digital pin
+const int left_pwm_pin = 10;   // D10
+const int right_pwm_pin = 11;  // D11
 
-const int status_pin = 2;
-const int status_led_pin = 3;
+const int status_pin = 2;      // D2
+const int status_led_pin = 3;  // D3
 
 long cur_millis = 0;
 long prev_millis = 0;
@@ -20,6 +21,7 @@ const int min_power = 0;
 int cur_power = 0;
 
 HardwareBluetoothRN42 bluetooth(Serial1, status_pin, 3, "BlueHost");
+Connection connection(bluetooth);
 
 int read_percent();
 void request_percent(int percent);
@@ -49,7 +51,7 @@ void loop ()
   if (cur_millis - prev_millis > interval_millis) {
     prev_millis = cur_millis;
 
-    if (bluetooth.isConnected()) {
+    if (bluetooth.connected()) {
       connection_up();
     } else if (recent_disconnect < 50) {
       connection_lost();
@@ -57,25 +59,6 @@ void loop ()
       connection_down();
     }
   }
-}
-
-inline int read_percent()
-{
-  int len, percent;
-  char buff[16];
-  if (bluetooth.available() < 3)
-    return -1;
-  // If there is an integer to read, read it.
-  len = bluetooth.readBytesUntil('\r', buff, sizeof(buff));
-  if (len < 3)
-    return -1;
-
-  return str_to_percent(&(buff[len - 3]));
-}
-
-inline void request_percent(int percent)
-{
-  //TODO: Implement this
 }
 
 inline void connection_up()
@@ -86,10 +69,8 @@ inline void connection_up()
   recent_disconnect = 0;
   interval_millis = 100;
 
-  percent = read_percent();
-  if (percent >= 0)
-    request_percent(percent);
-
+  percent = connection.read();
+  
   if (status_led_state != HIGH) {
     // Turn on LED
     digitalWrite(status_led_pin, HIGH);
