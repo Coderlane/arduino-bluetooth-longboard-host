@@ -1,9 +1,9 @@
 #include <Connection.h>
+#include <Motor.h>
 #include <HardwareBluetoothRN42.h>
 
 // Must be a digital pin
-const int left_pwm_pin = 10;   // D10
-const int right_pwm_pin = 11;  // D11
+const int motor_pin = 10;      // D10
 
 const int status_pin = 2;      // D2
 const int status_led_pin = 3;  // D3
@@ -20,26 +20,20 @@ const int max_power = 100;
 const int min_power = 0;
 int cur_power = 0;
 
-HardwareBluetoothRN42 bluetooth(Serial1, status_pin, 3, "BlueHost");
-Connection connection(bluetooth);
-
-int read_percent();
-void request_percent(int percent);
+HardwareBluetoothRN42 bluetooth(Serial1,
+    status_pin, RN42_MODE_AC_MASTER, "BlueHost");
+Connection connection(bluetooth, 1);
+Motor motor(motor_pin);
 
 void connection_up();
 void connection_lost();
 void connection_down();
 
-// Utility
-int parseInt(const char *str);
-char * strchr(char *str, int c);
-
-int str_to_percent(char *str);
-
 void setup()
 {
   delay(1000);
   analogReference(DEFAULT);
+  motor.setup();
   bluetooth.setup();
   bluetooth.setTimeout(10);
   pinMode(status_led_pin, OUTPUT);
@@ -63,14 +57,19 @@ void loop ()
 
 inline void connection_up()
 {
-  int percent;
+  int percent, rc;
   // Connection is up.
 
   recent_disconnect = 0;
   interval_millis = 100;
 
-  percent = connection.read();
-  
+  rc = connection.read(&percent);
+  if (rc < 0)
+    return;
+
+  // TODO: Handle malformed requests
+  motor.request(percent);
+
   if (status_led_state != HIGH) {
     // Turn on LED
     digitalWrite(status_led_pin, HIGH);
@@ -85,6 +84,11 @@ inline void connection_lost()
 
   interval_millis = 500;
   recent_disconnect++;
+
+  if (recent_disconnect > 1) {
+    // If we are down for half a second disable the motor.
+    motor.request(0);
+  }
 
   // Blink LED
   if (status_led_state == LOW) {
@@ -106,22 +110,4 @@ inline void connection_down()
     digitalWrite(status_led_pin, LOW);
     status_led_state = LOW;
   }
-}
-
-// Change a string to a percent.
-// str must be char[3] or more.
-// The percent should be 0 to 100.
-// If it is not, return -1.
-int str_to_percent(char *str)
-{
-  int percent = 0;
-
-  percent += (str[0] - '0') * 100;
-  percent += (str[1] - '0') * 10;
-  percent += (str[2] - '0');
-
-  if (percent > 100 || percent < 0)
-    return -1;
-
-  return percent;
 }
