@@ -23,7 +23,7 @@ int cur_power = 0;
 HardwareBluetoothRN42 bluetooth(Serial1,
     status_pin, RN42_MODE_AC_MASTER, "BlueHost");
 Connection connection(bluetooth, 1);
-Motor motor(motor_pin);
+Motor motor(motor_pin, 5, 7);
 
 void connection_up();
 void connection_lost();
@@ -33,15 +33,27 @@ void setup()
 {
   delay(1000);
   analogReference(DEFAULT);
-  motor.setup();
-  bluetooth.setup();
-  bluetooth.setTimeout(10);
   pinMode(status_led_pin, OUTPUT);
+  pinMode(10, OUTPUT);
+
+  motor.setup();
+
+  // Initialize the bluetooth module
+  bluetooth.setup();
+
+  // Set the COD
+  /*
+  bluetooth.enterCommand();
+  bluetooth.setCod("08050C");
+  bluetooth.exitCommand();
+  */
+  bluetooth.setTimeout(50);
 }
 
 void loop ()
 {
   long cur_millis = millis();
+  motor.process();
   if (cur_millis - prev_millis > interval_millis) {
     prev_millis = cur_millis;
 
@@ -57,7 +69,7 @@ void loop ()
 
 inline void connection_up()
 {
-  int percent, rc;
+  int percent = 0, rc;
   // Connection is up.
 
   recent_disconnect = 0;
@@ -66,6 +78,9 @@ inline void connection_up()
   rc = connection.read(&percent);
   if (rc < 0)
     return;
+
+  Serial.print("Requesting: ");
+  Serial.println(percent);
 
   // TODO: Handle malformed requests
   motor.request(percent);
@@ -85,6 +100,7 @@ inline void connection_lost()
   interval_millis = 500;
   recent_disconnect++;
 
+  Serial.println("Lost");
   if (recent_disconnect > 1) {
     // If we are down for half a second disable the motor.
     motor.request(0);
@@ -105,6 +121,7 @@ inline void connection_down()
   // Connection has been lost for a while.
 
   interval_millis = 2000;
+  Serial.println("Down");
   if (status_led_state != LOW) {
     // Turn off LED
     digitalWrite(status_led_pin, LOW);
